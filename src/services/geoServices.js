@@ -1,19 +1,23 @@
 /** SunGrid Renewables - GIS API integration service. */
 async function fetchNCOneMapParcels(
   counties = ["Wake", "Johnston", "Mecklenburg"],
-  minAcres = 500,
-  maxAcres = 700
+  minAcres = 100,
+  maxAcres = 5000
 ) {
-  const formattedCounties = counties.map((county) => `'${county}'`).join(",");
+  const formattedCounties = counties
+    .map((county) => `'${county.replace(/'/g, "''")}'`)
+    .join(",");
   const whereClause =
-    `county_name IN (${formattedCounties}) AND ` +
-    `gis_acres >= ${minAcres} AND gis_acres <= ${maxAcres}`;
-  const endpoint = "https://services.nconemap.gov/secure/rest/services/NC1Map parcels/MapServer/0/query";
+    `cntyname IN (${formattedCounties}) AND ` +
+    `gisacres >= ${minAcres} AND gisacres <= ${maxAcres}`;
+  const endpoint =
+    "https://services.nconemap.gov/secure/rest/services/NC1Map_Parcels/FeatureServer/1/query";
   const params = new URLSearchParams({
     where: whereClause,
-    outFields: "parno,ownname,county_name,gis_acres,landval,parval,mailadd,siteadd",
+    outFields: "parno,ownname,cntyname,gisacres,landval,parval,mailadd,siteadd",
     f: "geojson",
     outSR: "4326",
+    returnGeometry: "true",
   });
 
   try {
@@ -21,10 +25,14 @@ async function fetchNCOneMapParcels(
     if (!response.ok) {
       throw new Error(`NC OneMap fetch error: ${response.statusText}`);
     }
-    return await response.json();
+    const data = await response.json();
+    if (data.error) {
+      throw new Error(`NC OneMap query error: ${data.error.message}`);
+    }
+    return data;
   } catch (error) {
     console.error("Error fetching NC OneMap parcels:", error);
-    return null;
+    throw error;
   }
 }
 

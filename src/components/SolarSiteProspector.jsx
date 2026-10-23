@@ -6,8 +6,8 @@ function SolarSiteProspector() {
     "Johnston",
     "Mecklenburg",
   ]);
-  const [minAcres, setMinAcres] = useState(500);
-  const [maxAcres, setMaxAcres] = useState(700);
+  const [minAcres, setMinAcres] = useState(100);
+  const [maxAcres, setMaxAcres] = useState(5000);
   const [substationDistance, setSubstationDistance] = useState(3);
   const [enableFloodScrub, setEnableFloodScrub] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -30,13 +30,25 @@ function SolarSiteProspector() {
 
     setLoading(true);
     setStatusMsg("1/3 Querying NC OneMap Parcel REST Service...");
-    const parcelGeoJSON = await fetchNCOneMapParcels(
-      selectedCounties,
-      minAcres,
-      maxAcres
-    );
+    if (minAcres > maxAcres) {
+      setStatusMsg("Minimum acreage cannot be greater than maximum acreage.");
+      setLoading(false);
+      return;
+    }
+    let parcelGeoJSON;
+    try {
+      parcelGeoJSON = await fetchNCOneMapParcels(
+        selectedCounties,
+        minAcres,
+        maxAcres
+      );
+    } catch (error) {
+      setStatusMsg(`Parcel search failed: ${error.message}`);
+      setLoading(false);
+      return;
+    }
     if (!parcelGeoJSON?.features) {
-      setStatusMsg("No matching parcels returned from NC OneMap.");
+      setStatusMsg("NC OneMap returned an invalid parcel response.");
       setLoading(false);
       return;
     }
@@ -106,16 +118,16 @@ function SolarSiteProspector() {
               <input
                 type="number"
                 value={minAcres}
-                min="100"
-                max="2000"
+                min="1"
+                max="50000"
                 onChange={(event) => setMinAcres(Number(event.target.value))}
               />
               <span>to</span>
               <input
                 type="number"
                 value={maxAcres}
-                min="500"
-                max="5000"
+                min="1"
+                max="50000"
                 onChange={(event) => setMaxAcres(Number(event.target.value))}
               />
             </div>

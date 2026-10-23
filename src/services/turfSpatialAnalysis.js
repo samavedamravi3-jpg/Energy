@@ -56,8 +56,8 @@ function runSiteFilterPipeline(
         id: properties.parno || crypto.randomUUID(),
         parcelNumber: properties.parno,
         owner: properties.ownname || "N/A",
-        county: properties.county_name,
-        grossAcres: Number(properties.gis_acres || 0),
+        county: properties.cntyname,
+        grossAcres: Number(properties.gisacres || 0),
         netBuildableAcres: Number(buildableAcres.toFixed(2)),
         landValuation: properties.landval
           ? `$${Number(properties.landval).toLocaleString()}`
