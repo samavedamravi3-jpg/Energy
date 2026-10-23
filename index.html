@@ -1,47 +1,28 @@
-```
+<!DOCTYPE html>
+<html lang="en">
 
-  
-    
-    
-    
-    
-    
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="description"
+        content="SunGrid Renewables - Utility-Scale Solar Site Prospecting Workbench for Wake, Johnston, and Mecklenburg Counties." />
+    <title>SunGrid Renewables — Solar Site Prospecting Workbench</title>
 
-    
+    <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="[suspicious link removed]" />
-    <link rel="preconnect" href="[suspicious link removed]" crossorigin="" />
-    <link rel="stylesheet" />
+    <link rel="preconnect" href="[suspicious link removed]" crossorigin />
+    <link href="[suspicious link removed]" rel="stylesheet" />
 
-    
-    <link rel="stylesheet" />
-  
-  
-    
+    <!-- SunGrid Application Stylesheet -->
+    <link rel="stylesheet" href="%PUBLIC_URL%/styles/SolarProspector.css" />
+</head>
 
-    
-    <div></div>
-  
+<body>
+    <noscript>You need to enable JavaScript to run this web application.</noscript>
 
-```
+    <!-- React DOM Root Mount Point -->
+    <div id="root"></div>
+</body>
 
----
-
-### 2\. `src/index.js`
-
-*This JavaScript file initializes React 18+ and mounts the* *SolarSiteProspector* *dashboard into the* *index.html* *root element.*
-
-```
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import SolarSiteProspector from './components/SolarSiteProspector';
-import './styles/SolarProspector.css';
-
-// Get the root element from index.html
-const rootElement = document.getElementById('root');
-const root = ReactDOM.createRoot(rootElement);
-
-// Render the SunGrid Prospecting Web App
-root.render(
-  
-);
-```
+</html>
