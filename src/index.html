@@ -1,31 +1,48 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
+  <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0f172a" />
-    <meta name="description"
-        content="SunGrid Renewables - Utility-Scale Solar Site Prospecting Workbench for Wake, Johnston, and Mecklenburg Counties." />
-    <title>SunGrid Renewables — Solar Site Prospecting Workbench</title>
+    <meta
+      name="description"
+      content="SunGrid Renewables - Utility-Scale Solar Site Prospecting Workbench."
+    />
+    <title>SunGrid Renewables - Solar Site Prospecting Workbench</title>
+    <link rel="stylesheet" href="styles/SolarProspector.css" />
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this web application.</noscript>
+    <div id="root"></div>
 
-
-    <!-- SunGrid Application Stylesheet -->
-    <link rel="stylesheet" href="SolarProspector.css" />
-    <script type="module" src="components/SolarSiteProspector.jsx"></script>
+    <!-- These browser builds keep the project compatible with VS Code Live Server. -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/@turf/turf@7/turf.min.js"></script>
     <script src="services/geoServices.js"></script>
     <script src="services/turfSpatialAnalysis.js"></script>
-    <script src="styles/index.js"></script>
-
-
-
-</head>
-
-<body>
-    <noscript>You need to enable JavaScript to run this web application.</noscript>
-
-    <!-- React DOM Root Mount Point -->
-    <div id="root"></div>
-</body>
-
+    <script>
+      fetch("components/SolarSiteProspector.jsx")
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`Unable to load the app: ${response.status}`);
+          }
+          return response.text();
+        })
+        .then((source) => {
+          const compiled = Babel.transform(source, {
+            presets: [["react", { runtime: "classic" }]],
+          }).code;
+          const script = document.createElement("script");
+          script.textContent = compiled;
+          document.body.appendChild(script);
+        })
+        .catch((error) => {
+          console.error(error);
+          document.getElementById("root").textContent =
+            "The application could not be loaded. Check the browser console for details.";
+        });
+    </script>
+  </body>
 </html>

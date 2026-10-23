@@ -1,1 +1,209 @@
-import React, { useState, useEffect, useCallback } from 'react'; import { fetchNCOneMapParcels, fetchSubstations, fetchFEMAFloodZones } from '../services/geoServices'; import { runSiteFilterPipeline } from '../services/turfSpatialAnalysis'; import '../styles/SolarProspector.css'; export default function SolarSiteProspector() { // Filter States const [selectedCounties, setSelectedCounties] = useState(['Wake', 'Johnston', 'Mecklenburg']); const [minAcres, setMinAcres] = useState(500); const [maxAcres, setMaxAcres] = useState(700); const [substationDistance, setSubstationDistance] = useState(3.0); const [maxSlope, setMaxSlope] = useState(5.0); const [enableFloodScrub, setEnableFloodScrub] = useState(true); // Status &amp; Data States const [loading, setLoading] = useState(false); const [statusMsg, setStatusMsg] = useState('Ready for Prospecting'); const [candidateSites, setCandidateSites] = useState([]); const handleCountyToggle = (county) =&gt; { setSelectedCounties(prev =&gt; prev.includes(county) ? prev.filter(c =&gt; c !== county) : [...prev, county] ); }; const executeProspectingPipeline = useCallback(async () =&gt; { if (selectedCounties.length === 0) { alert('Please select at least one NC county.'); return; } setLoading(true); setStatusMsg('1/3 Querying NC OneMap Parcel REST Service...'); // 1\. Fetch Parcels const parcelGeoJSON = await fetchNCOneMapParcels(selectedCounties, minAcres, maxAcres); if (!parcelGeoJSON || !parcelGeoJSON.features) { setStatusMsg('No matching parcels returned from NC OneMap.'); setLoading(false); return; } setStatusMsg(\`2/3 Ingested ${parcelGeoJSON.features.length} candidate parcels. Fetching substations &amp; flood layers...\`); // 2\. Fetch Substations &amp; Flood Layers concurrently const [substationsGeoJSON, floodGeoJSON] = await Promise.all([ fetchSubstations(), enableFloodScrub ? fetchFEMAFloodZones([-81.1, 35.0, -78.2, 36.2]) : Promise.resolve(null) ]); setStatusMsg('3/3 Executing spatial buffer &amp; flood scrubbing in Turf.js...'); // 3\. Run Client-Side Spatial Filtering const filteredResults = runSiteFilterPipeline(parcelGeoJSON, substationsGeoJSON, floodGeoJSON, { maxSubstationMiles: parseFloat(substationDistance), minBuildableAcres: parseFloat(minAcres), maxSlopePercent: parseFloat(maxSlope) }); setCandidateSites(filteredResults); setStatusMsg(\`Prospecting Complete: ${filteredResults.length} Qualified Utility-Scale PV Sites Identified.\`); setLoading(false); }, [selectedCounties, minAcres, maxAcres, substationDistance, maxSlope, enableFloodScrub]); return ( <div> {/\* Header Bar \*/} <header> <h1>SunGrid Renewables — Site Prospecting Workbench</h1> <span>Lead Solar Development Engineer</span> </header> <div> {/\* Filter Control Panel Sidebar \*/} <aside> <h2>Site Filtering Criteria</h2> {/\* County Selector \*/} <div>  {['Johnston', 'Wake', 'Mecklenburg'].map(county =&gt; (  ))} </div> {/\* Acreage Range \*/} <div>  <div>  setMinAcres(Number(e.target.value))} min="100" max="2000" /&gt; <span>to</span>  setMaxAcres(Number(e.target.value))} min="500" max="5000" /&gt; </div> </div> {/\* Substation Proximity \*/} <div>   setSubstationDistance(e.target.value)} /&gt; </div> {/\* Slope Limit \*/} <div>   setMaxSlope(e.target.value)} /&gt; </div> {/\* FEMA Flood Exclusion \*/} <div>  </div> {/\* Execution Button \*/}  </aside> {/\* Results Main Area \*/} <main> <div>{statusMsg}</div> <div> <div> <h3>Qualified Sites</h3> <p>{candidateSites.length}</p> </div> <div> <h3>Total Potential Capacity</h3> <p> {(candidateSites.reduce((acc, s) =&gt; acc + s.netBuildableAcres, 0) / 7.5).toFixed(1)} MW </p> </div> </div> {/\* Data Table \*/} <div>  {candidateSites.length === 0 ? (  ) : ( candidateSites.map(site =&gt; (  )) )} <table> <thead> <tr> <th>Parcel ID</th> <th>County</th> <th>Owner Name</th> <th>Gross Acres</th> <th>Buildable Acres</th> <th>Land Valuation</th> </tr> </thead> <tbody><tr> <td colspan="6">No active prospecting search run yet.</td> </tr><tr> <td><code>{site.parcelNumber}</code></td> <td>{site.county}</td> <td>{site.owner}</td> <td>{site.grossAcres} ac</td> <td>{site.netBuildableAcres} ac</td> <td>{site.landValuation}</td> </tr></tbody> </table> </div> </main> </div> </div> ); }
+const { useCallback, useState } = React;
+
+function SolarSiteProspector() {
+  const [selectedCounties, setSelectedCounties] = useState([
+    "Wake",
+    "Johnston",
+    "Mecklenburg",
+  ]);
+  const [minAcres, setMinAcres] = useState(500);
+  const [maxAcres, setMaxAcres] = useState(700);
+  const [substationDistance, setSubstationDistance] = useState(3);
+  const [enableFloodScrub, setEnableFloodScrub] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [statusMsg, setStatusMsg] = useState("Ready for Prospecting");
+  const [candidateSites, setCandidateSites] = useState([]);
+
+  const handleCountyToggle = (county) => {
+    setSelectedCounties((previous) =>
+      previous.includes(county)
+        ? previous.filter((item) => item !== county)
+        : [...previous, county]
+    );
+  };
+
+  const executeProspectingPipeline = useCallback(async () => {
+    if (selectedCounties.length === 0) {
+      window.alert("Please select at least one NC county.");
+      return;
+    }
+
+    setLoading(true);
+    setStatusMsg("1/3 Querying NC OneMap Parcel REST Service...");
+    const parcelGeoJSON = await fetchNCOneMapParcels(
+      selectedCounties,
+      minAcres,
+      maxAcres
+    );
+    if (!parcelGeoJSON?.features) {
+      setStatusMsg("No matching parcels returned from NC OneMap.");
+      setLoading(false);
+      return;
+    }
+
+    setStatusMsg(
+      `2/3 Ingested ${parcelGeoJSON.features.length} candidate parcels. Fetching layers...`
+    );
+    const [substationsGeoJSON, floodGeoJSON] = await Promise.all([
+      fetchSubstations(),
+      enableFloodScrub
+        ? fetchFEMAFloodZones([-81.1, 35.0, -78.2, 36.2])
+        : Promise.resolve(null),
+    ]);
+    setStatusMsg("3/3 Executing spatial filtering in Turf.js...");
+    const filteredResults = runSiteFilterPipeline(
+      parcelGeoJSON,
+      substationsGeoJSON,
+      floodGeoJSON,
+      {
+        maxSubstationMiles: Number(substationDistance),
+        minBuildableAcres: Number(minAcres),
+      }
+    );
+    setCandidateSites(filteredResults);
+    setStatusMsg(
+      `Prospecting Complete: ${filteredResults.length} Qualified Utility-Scale PV Sites Identified.`
+    );
+    setLoading(false);
+  }, [
+    selectedCounties,
+    minAcres,
+    maxAcres,
+    substationDistance,
+    enableFloodScrub,
+  ]);
+
+  const capacity = (
+    candidateSites.reduce((total, site) => total + site.netBuildableAcres, 0) /
+    7.5
+  ).toFixed(1);
+
+  return (
+    <div className="prospector-container">
+      <header className="brand-header">
+        <h1>SunGrid Renewables - Site Prospecting Workbench</h1>
+        <span className="engineer-badge">Lead Solar Development Engineer</span>
+      </header>
+      <div className="dashboard-layout">
+        <aside className="filter-sidebar">
+          <h2>Site Filtering Criteria</h2>
+          <div className="filter-group">
+            <span className="group-label">Counties</span>
+            {["Johnston", "Wake", "Mecklenburg"].map((county) => (
+              <label className="checkbox-label" key={county}>
+                <input
+                  type="checkbox"
+                  checked={selectedCounties.includes(county)}
+                  onChange={() => handleCountyToggle(county)}
+                />{" "}
+                {county}
+              </label>
+            ))}
+          </div>
+          <div className="filter-group">
+            <span className="group-label">Acreage Range</span>
+            <div className="range-inputs">
+              <input
+                type="number"
+                value={minAcres}
+                min="100"
+                max="2000"
+                onChange={(event) => setMinAcres(Number(event.target.value))}
+              />
+              <span>to</span>
+              <input
+                type="number"
+                value={maxAcres}
+                min="500"
+                max="5000"
+                onChange={(event) => setMaxAcres(Number(event.target.value))}
+              />
+            </div>
+          </div>
+          <div className="filter-group">
+            <label className="group-label" htmlFor="substation-distance">
+              Substation distance (miles)
+            </label>
+            <input
+              id="substation-distance"
+              type="number"
+              value={substationDistance}
+              min="0.5"
+              step="0.5"
+              onChange={(event) => setSubstationDistance(event.target.value)}
+            />
+          </div>
+          <div className="filter-group">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={enableFloodScrub}
+                onChange={(event) => setEnableFloodScrub(event.target.checked)}
+              />{" "}
+              Exclude FEMA flood zones
+            </label>
+          </div>
+          <button
+            className="execute-btn"
+            type="button"
+            disabled={loading}
+            onClick={executeProspectingPipeline}
+          >
+            {loading ? "Running..." : "Run Prospecting Search"}
+          </button>
+        </aside>
+        <main className="results-panel">
+          <div className="status-bar">{statusMsg}</div>
+          <div className="summary-cards">
+            <div className="card">
+              <h3>Qualified Sites</h3>
+              <p className="metric">{candidateSites.length}</p>
+            </div>
+            <div className="card">
+              <h3>Total Potential Capacity</h3>
+              <p className="metric">{capacity} MW</p>
+            </div>
+          </div>
+          <div className="table-wrapper">
+            <table className="results-table">
+              <thead>
+                <tr>
+                  <th>Parcel ID</th>
+                  <th>County</th>
+                  <th>Owner Name</th>
+                  <th>Gross Acres</th>
+                  <th>Buildable Acres</th>
+                  <th>Land Valuation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {candidateSites.length === 0 ? (
+                  <tr>
+                    <td className="no-data" colSpan="6">
+                      No active prospecting search run yet.
+                    </td>
+                  </tr>
+                ) : (
+                  candidateSites.map((site) => (
+                    <tr key={site.id}>
+                      <td><code>{site.parcelNumber}</code></td>
+                      <td>{site.county}</td>
+                      <td>{site.owner}</td>
+                      <td>{site.grossAcres} ac</td>
+                      <td>{site.netBuildableAcres} ac</td>
+                      <td>{site.landValuation}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <SolarSiteProspector />
+);

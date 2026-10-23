@@ -1,1 +1,71 @@
-import \* as turf from '@turf/turf'; /\*\* \* SunGrid Renewables - Turf.js Client-Side Spatial Engine \*/ export function runSiteFilterPipeline(parcelsGeoJSON, substationsGeoJSON, floodZonesGeoJSON, options = {}) { const { maxSubstationMiles = 3.0, minBuildableAcres = 500.0, maxSlopePercent = 5.0 } = options; if (!parcelsGeoJSON || !parcelsGeoJSON.features) return []; // 1\. Buffer High-Voltage Substations by 3 Miles let substationBufferPolygon = null; if (substationsGeoJSON &amp;&amp; substationsGeoJSON.features.length &gt; 0) { const bufferedSubstations = turf.buffer(substationsGeoJSON, maxSubstationMiles, { units: 'miles' }); substationBufferPolygon = turf.combine(bufferedSubstations); } const qualifiedSites = []; parcelsGeoJSON.features.forEach((parcel) =&gt; { // A. Substation Distance Check (within 3 miles) if (substationBufferPolygon) { const withinGridBuffer = turf.booleanIntersects(parcel, substationBufferPolygon); if (!withinGridBuffer) return; // Exclude sites &gt;3 miles from substation } // B. Flood Zone Scrubbing (Spatial Erase) let cleanParcelGeometry = parcel.geometry; if (floodZonesGeoJSON &amp;&amp; floodZonesGeoJSON.features.length &gt; 0) { floodZonesGeoJSON.features.forEach((floodArea) =&gt; { if (turf.booleanIntersects(cleanParcelGeometry, floodArea)) { try { const difference = turf.difference(turf.feature(cleanParcelGeometry), floodArea); if (difference) { cleanParcelGeometry = difference.geometry; } } catch (e) { // Keep original if geometry geometry topology fails } } }); } // C. Net Buildable Acreage Calculation const areaMeters = turf.area(cleanParcelGeometry); const buildableAcres = areaMeters / 4046.86; // 1 acre = 4,046.86 sq. meters // Filter by Net Buildable Acre Threshold (&gt;= 500 Acres) if (buildableAcres &gt;= minBuildableAcres) { qualifiedSites.push({ id: parcel.properties.parno || Math.random().toString(), parcelNumber: parcel.properties.parno, owner: parcel.properties.ownname || 'N/A', county: parcel.properties.county\_name, grossAcres: parseFloat(parcel.properties.gis\_acres || 0), netBuildableAcres: parseFloat(buildableAcres.toFixed(2)), landValuation: parcel.properties.landval ? \`$${Number(parcel.properties.landval).toLocaleString()}\` : 'N/A', siteAddress: parcel.properties.siteadd || 'Unassigned Rural Parcel', geometry: cleanParcelGeometry }); } }); return qualifiedSites; }
+/** SunGrid Renewables - Turf.js client-side spatial engine. */
+function runSiteFilterPipeline(
+  parcelsGeoJSON,
+  substationsGeoJSON,
+  floodZonesGeoJSON,
+  options = {}
+) {
+  const {
+    maxSubstationMiles = 3.0,
+    minBuildableAcres = 500.0,
+  } = options;
+  if (!parcelsGeoJSON?.features || !window.turf) {
+    return [];
+  }
+
+  let substationBufferPolygon = null;
+  if (substationsGeoJSON?.features?.length > 0) {
+    const bufferedSubstations = turf.buffer(
+      substationsGeoJSON,
+      maxSubstationMiles,
+      { units: "miles" }
+    );
+    substationBufferPolygon = turf.combine(bufferedSubstations);
+  }
+
+  const qualifiedSites = [];
+  parcelsGeoJSON.features.forEach((parcel) => {
+    if (
+      substationBufferPolygon &&
+      !turf.booleanIntersects(parcel, substationBufferPolygon)
+    ) {
+      return;
+    }
+
+    let cleanParcelGeometry = parcel.geometry;
+    floodZonesGeoJSON?.features?.forEach((floodArea) => {
+      if (turf.booleanIntersects(cleanParcelGeometry, floodArea)) {
+        try {
+          const difference = turf.difference(
+            turf.feature(cleanParcelGeometry),
+            floodArea
+          );
+          if (difference) {
+            cleanParcelGeometry = difference.geometry;
+          }
+        } catch (error) {
+          console.warn("Unable to subtract a flood zone from a parcel.", error);
+        }
+      }
+    });
+
+    const buildableAcres = turf.area(cleanParcelGeometry) / 4046.86;
+    if (buildableAcres >= minBuildableAcres) {
+      const properties = parcel.properties || {};
+      qualifiedSites.push({
+        id: properties.parno || crypto.randomUUID(),
+        parcelNumber: properties.parno,
+        owner: properties.ownname || "N/A",
+        county: properties.county_name,
+        grossAcres: Number(properties.gis_acres || 0),
+        netBuildableAcres: Number(buildableAcres.toFixed(2)),
+        landValuation: properties.landval
+          ? `$${Number(properties.landval).toLocaleString()}`
+          : "N/A",
+        geometry: cleanParcelGeometry,
+      });
+    }
+  });
+
+  return qualifiedSites;
+}
